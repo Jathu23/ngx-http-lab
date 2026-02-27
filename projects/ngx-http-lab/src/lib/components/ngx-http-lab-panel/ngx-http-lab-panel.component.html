@@ -1,0 +1,193 @@
+<div class="lab-panel">
+
+  <!-- Header -->
+  <div class="lab-header">
+    <div class="lab-title">
+      <span class="lab-icon">🧪</span>
+      <span>ngx-http-lab</span>
+      <span class="lab-badge">{{ service.totalCalls() }} calls</span>
+      @if (service.errorCount() > 0) {
+        <span class="lab-badge error">{{ service.errorCount() }} errors</span>
+      }
+      @if (service.mockedCount() > 0) {
+        <span class="lab-badge mock">{{ service.mockedCount() }} mocked</span>
+      }
+    </div>
+    <div class="lab-header-actions">
+      <button class="btn btn-sm" (click)="service.exportLogs()">⬇ Export JSON</button>
+      <button class="btn btn-sm danger" (click)="service.clearLogs()">🗑 Clear</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="lab-tabs">
+    <button class="tab-btn" [class.active]="activeTab() === 'logs'" (click)="activeTab.set('logs')">
+      📡 Network Logs
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'rules'" (click)="activeTab.set('rules')">
+      ⚙️ Intercept Rules <span class="tab-count">{{ service.rules().length }}</span>
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'jwt'" (click)="activeTab.set('jwt')">
+      🔑 JWT Override
+      @if (service.jwtOverride()) { <span class="dot-active"></span> }
+    </button>
+  </div>
+
+  <!-- ===== LOGS TAB ===== -->
+  @if (activeTab() === 'logs') {
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <input class="filter-input" placeholder="🔍 Filter by URL..." [ngModel]="urlFilter()" (ngModelChange)="urlFilter.set($event)" />
+      <select class="filter-select" [ngModel]="methodFilter()" (ngModelChange)="methodFilter.set($event)">
+        @for (m of methodOptions; track m) { <option [value]="m">{{ m }}</option> }
+      </select>
+      <select class="filter-select" [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+        @for (s of statusOptions; track s) { <option [value]="s">{{ s }}</option> }
+      </select>
+    </div>
+
+    <!-- Logs Table -->
+    <div class="logs-table-wrap">
+      <table class="logs-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>URL</th>
+            <th>Status</th>
+            <th>Duration</th>
+            <th>Time</th>
+            <th>Flags</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (log of filteredLogs(); track log.id) {
+            <tr class="log-row" [class.selected]="selectedLog()?.id === log.id" [class.is-error]="log.isError" (click)="selectLog(log)">
+              <td><span class="method-badge" [class]="'method-' + log.method.toLowerCase()">{{ log.method }}</span></td>
+              <td class="url-cell" [title]="log.url">{{ log.url }}</td>
+              <td><span class="status-badge" [class]="getStatusClass(log.status)">{{ log.status ?? '...' }}</span></td>
+              <td>{{ log.duration !== null ? log.duration + 'ms' : '...' }}</td>
+              <td>{{ formatTime(log.timestamp) }}</td>
+              <td>
+                @if (log.isMocked) { <span class="flag mock">MOCK</span> }
+                @if (log.isError) { <span class="flag error">ERR</span> }
+              </td>
+            </tr>
+
+            <!-- Detail Row -->
+            @if (selectedLog()?.id === log.id) {
+              <tr class="detail-row">
+                <td colspan="6">
+                  <div class="detail-panel">
+                    <div class="detail-col">
+                      <div class="detail-label">📤 REQUEST HEADERS</div>
+                      <pre class="json-view">{{ formatBody(log.requestHeaders) }}</pre>
+                      <div class="detail-label">📦 REQUEST BODY</div>
+                      <pre class="json-view">{{ formatBody(log.requestBody) }}</pre>
+                    </div>
+                    <div class="detail-col">
+                      <div class="detail-label">📥 RESPONSE BODY</div>
+                      <pre class="json-view">{{ formatBody(log.responseBody) }}</pre>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+          @empty {
+            <tr><td colspan="6" class="empty-row">No API calls captured yet. Make some requests!</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- ===== RULES TAB ===== -->
+  @if (activeTab() === 'rules') {
+    <div class="rules-section">
+
+      <!-- Existing Rules -->
+      <div class="rules-list">
+        <div class="section-title">Active Rules</div>
+        @for (rule of service.rules(); track rule.id) {
+          <div class="rule-card" [class.disabled]="!rule.enabled">
+            <div class="rule-info">
+              <span class="method-badge" [class]="'method-' + (rule.method ?? 'all').toLowerCase()">{{ rule.method || '*' }}</span>
+              <span class="rule-pattern">{{ rule.urlPattern }}</span>
+              @if (rule.mockResponse) { <span class="flag mock">MOCK {{ rule.mockResponse.status }}</span> }
+              @if (rule.modifyRequest) { <span class="flag modify">MODIFY REQ</span> }
+            </div>
+            <div class="rule-actions">
+              <button class="btn btn-sm" (click)="service.toggleRule(rule.id)">{{ rule.enabled ? '⏸ Disable' : '▶ Enable' }}</button>
+              <button class="btn btn-sm danger" (click)="service.removeRule(rule.id)">🗑</button>
+            </div>
+          </div>
+        }
+        @empty {
+          <div class="empty-label">No intercept rules yet. Add one below.</div>
+        }
+      </div>
+
+      <!-- Add Rule Form -->
+      <div class="add-rule-form">
+        <div class="section-title">➕ Add New Rule</div>
+
+        <div class="form-row">
+          <input class="form-input" placeholder="URL pattern (e.g. /api/orders)" [ngModel]="newRule().urlPattern" (ngModelChange)="updateNewRule('urlPattern', $event)" />
+          <select class="filter-select" [ngModel]="newRule().method" (ngModelChange)="updateNewRule('method', $event)">
+            <option value="*">ALL Methods</option>
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+            <option value="PATCH">PATCH</option>
+          </select>
+        </div>
+
+        <div class="mode-toggle">
+          <button class="tab-btn" [class.active]="newRuleMode() === 'mock'" (click)="newRuleMode.set('mock')">🎭 Mock Response</button>
+          <button class="tab-btn" [class.active]="newRuleMode() === 'request'" (click)="newRuleMode.set('request')">✏️ Modify Request</button>
+        </div>
+
+        @if (newRuleMode() === 'mock') {
+          <div class="form-row">
+            <input type="number" class="form-input short" placeholder="Status" [ngModel]="newMockStatus()" (ngModelChange)="newMockStatus.set($event)" />
+          </div>
+          <textarea class="code-input" rows="5" placeholder='Mock response body (JSON)' [ngModel]="newMockBody()" (ngModelChange)="newMockBody.set($event)"></textarea>
+        }
+
+        @if (newRuleMode() === 'request') {
+          <div class="form-row">
+            <input class="form-input" placeholder="Header key" [ngModel]="newReqHeaderKey()" (ngModelChange)="newReqHeaderKey.set($event)" />
+            <input class="form-input" placeholder="Header value" [ngModel]="newReqHeaderVal()" (ngModelChange)="newReqHeaderVal.set($event)" />
+          </div>
+          <textarea class="code-input" rows="4" placeholder='Request body patch (JSON)' [ngModel]="newBodyPatch()" (ngModelChange)="newBodyPatch.set($event)"></textarea>
+        }
+
+        <button class="btn btn-primary" (click)="addRule()">Add Rule</button>
+      </div>
+    </div>
+  }
+
+  <!-- ===== JWT TAB ===== -->
+  @if (activeTab() === 'jwt') {
+    <div class="jwt-section">
+      <div class="section-title">🔑 JWT Token Override</div>
+      <p class="jwt-desc">Enter a JWT token to inject into <strong>every</strong> outgoing request as <code>Authorization: Bearer ...</code></p>
+      @if (service.jwtOverride()) {
+        <div class="jwt-active-badge">✅ JWT Override Active</div>
+      }
+      <textarea
+        class="code-input jwt-input"
+        rows="5"
+        placeholder="Paste your JWT token here..."
+        [ngModel]="jwtInput()"
+        (ngModelChange)="jwtInput.set($event)">
+      </textarea>
+      <div class="jwt-actions">
+        <button class="btn btn-primary" (click)="applyJwt()">Apply JWT</button>
+        <button class="btn btn-sm danger" (click)="clearJwt()">Clear</button>
+      </div>
+    </div>
+  }
+
+</div>

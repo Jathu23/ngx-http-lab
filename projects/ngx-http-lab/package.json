@@ -1,0 +1,19 @@
+{
+  "name": "ngx-http-lab",
+  "version": "0.0.1",
+  "description": "Angular HTTP interceptor dev tool — inspect, modify and mock API calls during development",
+  "keywords": ["angular", "http", "interceptor", "devtools", "mock", "debug"],
+  "peerDependencies": {
+    "@angular/common": ">=17.0.0",
+    "@angular/core": ">=17.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@angular/common": { "optional": false },
+    "@angular/core": { "optional": false }
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "sideEffects": false
+}
+
