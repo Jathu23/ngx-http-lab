@@ -1,59 +1,88 @@
-# NgxHttpLab
+# ngx-http-lab 🧪
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.3.
+A powerfully simple, zero-config HTTP debugging and mocking panel for Angular applications. 
 
-## Development server
+`ngx-http-lab` acts as an in-app network inspector for Angular developers. Instead of constantly opening the browser's DevTools Network tab, you get a clean, floating UI right inside your app to view, filter, modify, and mock HTTP requests on the fly. 
 
-To start a local development server, run:
+It is designed to be **developer-only** — with zero overhead in production builds.
 
-```bash
-ng serve
-```
+## Features ✨
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+* 🔍 **API Call Logging:** Inspect request/response URLs, Methods, Status Codes, and Durations.
+* 📦 **Payload Inspection:** View Request Headers, Request Body, and Response Body.
+* ✏️ **Request Modification:** Dynamically intercept and modify request headers or body payloads before they leave the browser.
+* 🎭 **Response Mocking:** Define mock responses (status code, body, and artificial delay) for specific API endpoints.
+* 🔑 **JWT Override:** Inject a custom Bearer token into all outgoing requests.
+* ⚡ **Zero-Config UI:** Just provide the module in `app.config.ts`. The floating toggle button (`🧪`) injects itself into the DOM automatically.
+* 🛡️ **Production Safe:** When the `enabled` config flag is false (e.g., in production), the library completely bypasses itself.
 
-## Code scaffolding
+---
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Installation 📦
 
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
+Install via npm:
 
 ```bash
-ng build
+npm install ngx-http-lab --save-dev
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+*(Note: Requires Angular 17+)*
 
-## Running unit tests
+---
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+## Setup (Zero-Config) 🛠️
 
-```bash
-ng test
+In an Angular standalone application, open your `app.config.ts` and add `provideNgxHttpLab()` and `ngxHttpLabInterceptor`:
+
+```typescript
+import { ApplicationConfig } from '@angular/core';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideNgxHttpLab, ngxHttpLabInterceptor } from 'ngx-http-lab';
+import { environment } from '../environments/environment';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    // 1. Add the interceptor to your HttpClient
+    provideHttpClient(withInterceptors([
+      // ... your other interceptors (like auth),
+      ngxHttpLabInterceptor 
+    ])),
+
+    // 2. Provide the library (pass enabled: false for production)
+    provideNgxHttpLab({ 
+      enabled: !environment.production,
+      maxLogs: 200 // Optional: defaults to 200
+    })
+  ]
+};
 ```
 
-## Running end-to-end tests
+**That's it! 🎉** 
 
-For end-to-end (e2e) testing, run:
+There is **no need** to modify your `index.html` or `app.component.html`. 
+When your app runs (and `enabled` is `true`), a floating `🧪` button will automatically appear in the bottom-right corner of your screen. 
 
-```bash
-ng e2e
-```
+---
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## Usage 💡
 
-## Additional Resources
+1. Click the floating `🧪` button to open the Dev Lab.
+2. **Network Logs Tab**: As your application makes HTTP calls using Angular's `HttpClient`, they will appear here in real-time. Click any row to expand and view Headers and Body payloads.
+3. **Intercept Rules Tab**: Click "Add Rule" to define paths you want to intercept.
+   - You can match by URL snippet (e.g., `/api/users`) and Method (e.g., `GET`).
+   - Use the **Mock Response** section to return fake data instantly without hitting the real server.
+   - Use the **Modify Request** section to append headers or patch the JSON body.
+4. **JWT Override Tab**: Paste a token here to force every request to include `Authorization: Bearer <token>`.
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+---
+
+## How it works under the hood ⚙️
+
+- The library uses a true JavaScript module-level singleton state. This guarantees that the interceptor capturing the network requests and the UI Panel displaying them are always reading from the exact same state, regardless of complex Dependency Injection injector contexts.
+- The UI Panel is automatically injected into the `document.body` using an `APP_INITIALIZER` factory, which seamlessly mounts `NgxHttpLabHostComponent` to the DOM.
+
+---
+
+## License
+
+MIT
