@@ -1,7 +1,27 @@
-import { EnvironmentProviders, makeEnvironmentProviders } from '@angular/core';
+import { EnvironmentProviders, makeEnvironmentProviders, APP_INITIALIZER, ApplicationRef, createComponent, EnvironmentInjector } from '@angular/core';
 import { NgxHttpLabConfig } from './models/ngx-http-lab-config.model';
 import { NgxHttpLabService, configureNgxHttpLab } from './ngx-http-lab.service';
+import { NgxHttpLabHostComponent } from './components/ngx-http-lab-host/ngx-http-lab-host.component';
+
 export { ngxHttpLabInterceptor } from './interceptors/ngx-http-lab.interceptor';
+
+/**
+ * Factory to inject the http lab host component into the DOM automatically
+ */
+function injectNgxHttpLabHost(appRef: ApplicationRef, injector: EnvironmentInjector) {
+    return () => {
+        // Create the component and attach it to the application reference
+        const hostComponent = createComponent(NgxHttpLabHostComponent, {
+            environmentInjector: injector
+        });
+
+        // Attach to Angular's change detection
+        appRef.attachView(hostComponent.hostView);
+
+        // Append it to the document body
+        document.body.appendChild(hostComponent.location.nativeElement);
+    };
+}
 
 /**
  * Register ngx-http-lab in your Angular app.
@@ -27,7 +47,16 @@ export function provideNgxHttpLab(config?: NgxHttpLabConfig): EnvironmentProvide
     }
 
     // Provide the service for Angular DI (panel component uses it for reactivity)
-    return makeEnvironmentProviders([NgxHttpLabService]);
+    // Also provide the APP_INITIALIZER to auto-mount the host component
+    return makeEnvironmentProviders([
+        NgxHttpLabService,
+        {
+            provide: APP_INITIALIZER,
+            useFactory: injectNgxHttpLabHost,
+            deps: [ApplicationRef, EnvironmentInjector],
+            multi: true
+        }
+    ]);
 }
 
 /**

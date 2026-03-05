@@ -14,3 +14,4 @@ export * from './lib/provide-ngx-http-lab';
 
 // UI Panel
 export * from './lib/components/ngx-http-lab-panel/ngx-http-lab-panel.component';
+export * from './lib/components/ngx-http-lab-host/ngx-http-lab-host.component';
