@@ -38,15 +38,31 @@ export const ngxHttpLabInterceptor: HttpInterceptorFn = (
         });
     }
 
-    // 2. Find matching intercept rule
-    const rule = ngxHttpLabFindRule(req.url, req.method);
+    // 2. Find matching intercept rule and its active scenario
+    const match = ngxHttpLabFindRule(req);
 
-    // 3. Apply request modifier
-    if (rule?.modifyRequest) {
-        const { headers: ruleHeaders, bodyPatch } = rule.modifyRequest;
-        if (ruleHeaders) {
-            modifiedReq = modifiedReq.clone({ setHeaders: ruleHeaders });
+    // 3. Apply request modifier if present
+    if (match?.rule?.modifyRequest) {
+        const { headers: ruleHeaders, bodyPatch, queryParams: ruleQP } = match.rule.modifyRequest;
+
+        // Apply query param overrides
+        if (ruleQP?.length) {
+            let params = modifiedReq.params;
+            ruleQP.filter(p => p.enabled && p.key.trim()).forEach(p => {
+                params = params.set(p.key.trim(), p.value);
+            });
+            modifiedReq = modifiedReq.clone({ params });
         }
+
+        // Apply header overrides
+        if (ruleHeaders?.length) {
+            const headersObj: Record<string, string> = {};
+            ruleHeaders.filter(h => h.enabled && h.key.trim())
+                .forEach(h => { headersObj[h.key] = h.value; });
+            modifiedReq = modifiedReq.clone({ setHeaders: headersObj });
+        }
+
+        // Apply body patch
         if (bodyPatch && modifiedReq.body && typeof modifiedReq.body === 'object') {
             modifiedReq = modifiedReq.clone({
                 body: { ...(modifiedReq.body as Record<string, unknown>), ...bodyPatch }
@@ -54,9 +70,9 @@ export const ngxHttpLabInterceptor: HttpInterceptorFn = (
         }
     }
 
-    // 4. Return mock response if rule says so
-    if (rule?.mockResponse) {
-        const mock = rule.mockResponse;
+    // 4. Return active scenario mock response
+    if (match?.scenario) {
+        const mock = match.scenario;
         const log: ApiLog = {
             id, timestamp: new Date(),
             method: req.method, url: req.url,
@@ -70,7 +86,7 @@ export const ngxHttpLabInterceptor: HttpInterceptorFn = (
             .pipe(delay(mock.delayMs ?? 0));
     }
 
-    // 5. Log the pending request
+    // 5. Log the pending real request
     ngxHttpLabAddLog({
         id, timestamp: new Date(),
         method: req.method, url: req.url,
